@@ -1,5 +1,6 @@
 import math
 
+import cv2
 import numpy as np
 from PIL import Image
 from skimage import color, io
@@ -20,11 +21,13 @@ def load(image_path):
 
     ### YOUR CODE HERE
     # Use skimage io.imread
-    pass
+    # pass
+    out = cv2.imread(image_path)
+    out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
     ### END YOUR CODE
 
     # Let's convert the image to be between the correct range.
-    out = out.astype(np.float64) / 255
+    out = out.astype(np.float32) / 255
     return out
 
 
@@ -68,7 +71,8 @@ def dim_image(image):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    # pass
+    out = (image ** 2)*0.5
     ### END YOUR CODE
 
     return out
@@ -96,7 +100,15 @@ def resize_image(input_image, output_rows, output_cols):
     #    > This should require two nested for loops!
 
     ### YOUR CODE HERE
-    pass
+    # pass
+    row_scale_factor = input_image.shape[0]/output_rows
+    col_scale_factor = input_image.shape[1]/output_cols
+
+    for i in range(output_rows):
+        for j in range(output_cols):
+            input_row = int(i*row_scale_factor)
+            input_col = int(j*col_scale_factor)
+            output_image[i, j, :] = input_image[input_row, input_col, :]
     ### END YOUR CODE
 
     # 3. Return the output image
@@ -119,7 +131,9 @@ def rotate2d(point, theta):
     # Reminder: np.cos() and np.sin() will be useful here!
 
     ## YOUR CODE HERE
-    pass
+    rot_matrix = np.array([[np.cos(theta), -np.sin(theta)], 
+                           [np.sin(theta), np.cos(theta)]])
+    return rot_matrix.dot(point)
     ### END YOUR CODE
 
 
@@ -140,8 +154,17 @@ def rotate_image(input_image, theta):
     # 1. Create an output image with the same shape as the input
     output_image = np.zeros_like(input_image)
 
+    cx = input_image.shape[0]//2
+    cy = input_image.shape[1]//2
     ## YOUR CODE HERE
-    pass
+    for i in range(output_image.shape[1]):
+        for j in range(output_image.shape[0]):
+            inp_coor = rotate2d(np.array([i - cx, j - cy]), -theta)
+            # print(inp_coor)
+            inp_i = int(inp_coor[0]) + cx
+            inp_j = int(inp_coor[1]) + cy
+            if inp_i >= 0 and inp_i < input_cols and inp_j >= 0 and inp_j < input_rows:
+                output_image[j, i] = input_image[inp_j, inp_i]
     ### END YOUR CODE
 
     # 3. Return the output image
