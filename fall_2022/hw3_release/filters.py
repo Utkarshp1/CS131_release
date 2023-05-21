@@ -28,8 +28,19 @@ def conv_nested(image, kernel):
     Hk, Wk = kernel.shape
     out = np.zeros((Hi, Wi))
 
+    cx = Hk//2
+    cy = Wk//2
+
     ### YOUR CODE HERE
-    pass
+    for m in range(Wi):
+        for n in range(Hi):
+            conv_val = 0
+            for i in range(Wk):
+                for j in range(Hk):
+                    img_x, img_y = m - i + cx, n - j + cy
+                    if img_x >= 0 and img_x < Wi and img_y >=0 and img_y < Hi:
+                        conv_val += image[img_y, img_x]*kernel[j, i]
+            out[n, m] = conv_val
     ### END YOUR CODE
 
     return out
@@ -56,7 +67,7 @@ def zero_pad(image, pad_height, pad_width):
     out = None
 
     ### YOUR CODE HERE
-    pass
+    out = np.pad(image, ((pad_height, pad_height), (pad_width, pad_width)))
     ### END YOUR CODE
     return out
 
@@ -80,12 +91,18 @@ def conv_fast(image, kernel):
     Returns:
         out: numpy array of shape (Hi, Wi).
     """
+    import time
     Hi, Wi = image.shape
     Hk, Wk = kernel.shape
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
+    image = zero_pad(image, Hk//2, Wk//2)
+    kernel = np.flip(kernel, (0, 1))
+
+    for i in range(Hi):
+        for j in range(Wi):
+            out[i, j] = np.sum(np.multiply(image[i:i+Hk, j:j+Wk], kernel))
     ### END YOUR CODE
 
     return out
@@ -105,7 +122,7 @@ def cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    out = conv_fast(f, np.flip(g, (0, 1)))
     ### END YOUR CODE
 
     return out
@@ -127,7 +144,8 @@ def zero_mean_cross_correlation(f, g):
 
     out = None
     ### YOUR CODE HERE
-    pass
+    g = g - g.mean()
+    out = conv_fast(f, np.flip(g, (0, 1)))
     ### END YOUR CODE
 
     return out
@@ -149,9 +167,21 @@ def normalized_cross_correlation(f, g):
         out: numpy array of shape (Hf, Wf).
     """
 
-    out = None
+    Hi, Wi = f.shape
+    Hk, Wk = g.shape
+
+    out = np.zeros((Hi, Wi))
     ### YOUR CODE HERE
-    pass
+    g = (g - g.mean())/g.std()
+
+    f = zero_pad(f, Hk//2, Wk//2)
+
+    for i in range(Hi):
+        for j in range(Wi):
+            f_patch = f[i:i+Hk, j:j+Wk]
+            norm_f = (f_patch - f_patch.mean())/f_patch.std()
+            out[i, j] = np.sum(np.multiply(norm_f, g))
+
     ### END YOUR CODE
 
     return out
