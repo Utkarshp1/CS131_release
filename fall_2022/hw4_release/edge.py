@@ -7,6 +7,8 @@ Last modified: 10/25/2022
 Python Version: 3.5+
 """
 
+from collections import defaultdict
+
 import numpy as np
 
 def conv(image, kernel):
@@ -34,9 +36,12 @@ def conv(image, kernel):
     pad_width1 = Wk // 2
     pad_width = ((pad_width0,pad_width0),(pad_width1,pad_width1))
     padded = np.pad(image, pad_width, mode='edge')
+    kernel = np.flip(kernel, (0, 1))
 
     ### YOUR CODE HERE
-    pass
+    for i in range(Hi):
+        for j in range(Wi):
+            out[i, j] = np.sum(np.multiply(padded[i:i+Hk, j:j+Wk], kernel))
     ### END YOUR CODE
 
     return out
@@ -59,9 +64,11 @@ def gaussian_kernel(size, sigma):
     """
 
     kernel = np.zeros((size, size))
-
+    k = size//2
     ### YOUR CODE HERE
-    pass
+    for i in range(kernel.shape[0]):
+        for j in range(kernel.shape[1]):
+            kernel[i, j] = np.exp(-((i-k)**2 + (j-k)**2)/(2*sigma**2))/(2*np.pi*sigma**2)
     ### END YOUR CODE
 
     return kernel
@@ -79,9 +86,10 @@ def partial_x(img):
     """
 
     out = None
+    d_x = np.array([[-0.5, 0, 0.5]])
 
     ### YOUR CODE HERE
-    pass
+    out = -1*conv(img, d_x) # -1 because the conv flips the kernel
     ### END YOUR CODE
 
     return out
@@ -99,9 +107,10 @@ def partial_y(img):
     """
 
     out = None
+    d_y = np.array([[-0.5], [0], [0.5]])
 
     ### YOUR CODE HERE
-    pass
+    out = -1*conv(img, d_y) # -1 because the conv flips the kernel
     ### END YOUR CODE
 
     return out
@@ -125,7 +134,13 @@ def gradient(img):
     theta = np.zeros(img.shape)
 
     ### YOUR CODE HERE
-    pass
+    G_x = partial_x(img)
+    G_y = partial_y(img)
+
+    G = np.sqrt(G_x**2 + G_y**2)
+    G = np.linalg.norm([G_x, G_y], ord=2, axis=0)
+    theta = np.arctan2(G_y, G_x)*180/np.pi
+    theta = np.where(theta >=0, theta, 360+theta)
     ### END YOUR CODE
 
     return G, theta
@@ -153,7 +168,16 @@ def non_maximum_suppression(G, theta):
 
     #print(G)
     ### BEGIN YOUR CODE
-    pass
+    for i in range(1, G.shape[0]-1):
+        for j in range(1, G.shape[1]-1):
+            if (theta[i, j] == 0 or theta[i, j] == 180) and G[i, j+1] <= G[i, j] and G[i, j-1] <= G[i, j]:
+                out[i, j] = G[i, j]
+            elif (theta[i, j] == 135 or theta[i, j] == 315) and G[i-1, j+1] <= G[i, j] and G[i+1, j-1] <= G[i, j]:
+                out[i, j] = G[i, j]
+            elif (theta[i, j] == 90 or theta[i, j] == 270) and G[i+1, j] <= G[i, j] and G[i-1, j] <= G[i, j]:
+                out[i, j] = G[i, j]
+            elif (theta[i, j] == 45 or theta[i, j] == 225) and G[i+1, j+1] <= G[i, j] and G[i-1, j-1] <= G[i, j]:
+                out[i, j] = G[i, j]
     ### END YOUR CODE
 
     return out
@@ -178,7 +202,8 @@ def double_thresholding(img, high, low):
     weak_edges = np.zeros(img.shape, dtype=np.bool)
 
     ### YOUR CODE HERE
-    pass
+    strong_edges = (img > high).astype(np.uint8)
+    weak_edges = (np.logical_and(img > low, img <=high)).astype(np.uint8)
     ### END YOUR CODE
 
     return strong_edges, weak_edges
@@ -208,7 +233,6 @@ def get_neighbors(y, x, H, W):
                 if (i == y and j == x):
                     continue
                 neighbors.append((i, j))
-
     return neighbors
 
 def link_edges(strong_edges, weak_edges):
@@ -229,6 +253,7 @@ def link_edges(strong_edges, weak_edges):
 
     H, W = strong_edges.shape
     indices = np.stack(np.nonzero(strong_edges)).T
+    print(indices.shape)
     edges = np.zeros((H, W), dtype=np.bool)
 
     # Make new instances of arguments to leave the original
@@ -237,7 +262,17 @@ def link_edges(strong_edges, weak_edges):
     edges = np.copy(strong_edges)
 
     ### YOUR CODE HERE
-    pass
+    for idx in indices:
+        search_space = [(idx[0], idx[1])]
+        color = defaultdict(lambda : 'black')
+        for point in search_space:
+            color[point] = 'gray'
+            neighbours = get_neighbors(point[0], point[1], H, W)
+            for neighbour in neighbours:
+                if weak_edges[neighbour[0], neighbour[1]] and color[neighbour] != 'white':
+                    search_space.append(neighbour)
+                    edges[neighbour[0], neighbour[1]] = 1
+            color[point] = 'white'
     ### END YOUR CODE
 
     return edges
@@ -255,7 +290,12 @@ def canny(img, kernel_size=5, sigma=1.4, high=20, low=15):
         edge: numpy array of shape(H, W).
     """
     ### YOUR CODE HERE
-    pass
+    kernel = gaussian_kernel(kernel_size, sigma)
+    smoothed = conv(img, kernel)
+    grad, theta = gradient(smoothed)
+    suppressed_edges = non_maximum_suppression(grad, theta)
+    strong_edge, weak_edge = double_thresholding(suppressed_edges, high, low)
+    edge = link_edges(strong_edge, weak_edge)
     ### END YOUR CODE
 
     return edge
